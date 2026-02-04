@@ -1,41 +1,24 @@
-provider "aws" {
-    region = "us-east-1"
-}
+aws s3api create-bucket `
+  --bucket cbz-terraform-state-prod `
+  --region us-west-2 `
+  --create-bucket-configuration LocationConstraint=us-west-2
 
-module "vpc" {
-    source = "./modules/vpc"
-}
 
-module "ec2" {
-    source = "./modules/ec2"
-    vpc_id            = module.vpc.vpc_id
-    public_subnet_ids = module.vpc.public_subnet_ids
-}
+aws s3api put-bucket-versioning \
+  --bucket cbz-terraform-state-prod \
+  --versioning-configuration Status=Enabled
 
-module "rds" {
-    source = "./modules/rds"
-    vpc_id             = module.vpc.vpc_id
-    private_subnet_ids = module.vpc.private_subnet_ids
-}
 
-module "eks" {
-    source = "./modules/eks"
-    vpc_id             = module.vpc.vpc_id
-    private_subnet_ids = module.vpc.private_subnet_ids
-}
+aws dynamodb create-table `
+  --table-name terraform-locks `
+  --attribute-definitions AttributeName=LockID,AttributeType=S `
+  --key-schema AttributeName=LockID,KeyType=HASH `
+  --billing-mode PAY_PER_REQUEST `
+  --region us-west-2
 
-module "s3" {
-    source = "./modules/s3"
-}
+docker run -d --name flight-app -p 8080:8080 flight-reservation-app
 
-# aws configure  then , 
-# terraform init
-#terraform validate
-#terraform plan
-#terraform apply
-
-# Test Ansible (IMP) AFter Infra Created  ON Ubuntu 
-# cd ansible
-#ansible all -m ping
-#ansible-playbook playbooks/jenkins.yml
-#ansible-playbook playbooks/sonarqube.yml
+aws configure
+aws eks update-kubeconfig \
+  --region us-west-2 \
+  --name flight-reservation-system-cluster
